@@ -1,19 +1,40 @@
 #include <stdio.h>
-#include <string.h>
-#include "token.h"
+#include <stdlib.h>
+#include "lexer.h"
+#include "symboltable.h"
 
-//ADD functionality that shows the user what the compiler did
+static FILE* getFile(const char *fileName){
+    FILE *f = fopen(fileName, "r");
+    if(!f) perror("Could not open file");
+    return f;
+}
 
 int main() {
     char fileName[256];
-    FILE *file;
 
     printf("Write the name of the .txt you want to compile:\n");
-    scanf("%s", fileName);
-    file = getFile(fileName);
+    if (scanf("%255s", fileName) != 1){
+        printf("Invalid input.\n");
+        return 1;
+    }
 
+    FILE *file = getFile(fileName);
+    if (!file) return 1;
+
+    // if you want a symbol table:
+    SymbolTableHash *st = initHash(101);
+    if(!st){
+        printf("Could not create symbol table.\n");
+        fclose(file);
+        return 1;
+    }
+
+    // Quick test: lex & print tokens (current initLexer prints)
     initLexer(file);
 
+    // Later: you can modify initLexer to call insertHash(st, token) for NUM tokens.
+
+    freeHash(st);
     fclose(file);
     return 0;
 }

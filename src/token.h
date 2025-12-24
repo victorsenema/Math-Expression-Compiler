@@ -26,12 +26,12 @@ typedef enum{
     NONE
 } TokenValue;
 
-struct Token{
+typedef struct Token{
     char lexeme[32];
     TokenType tokenType;
     int tablePosition; //only for num and id
     TokenValue tokenValue;
     float variableValue;
-};
+} Token;
 
 #endif

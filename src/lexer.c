@@ -4,14 +4,20 @@
 #include <stdlib.h>
 #include "token.h"
 
+//NEED TO ADD THE INSERTION OF THE TOKEN IN THE SYMBOLTABLE
+
 int globalLineCursor = 0;
 
-void lexicalError(const char *errorMessage){
+void lexicalError(char *errorMessage){
     printf("%s", errorMessage);
     return;
 }
 
-static Token makeErrorToken(const char *msg) {
+bool isDigit(char c){
+    return(c >= '0' && c <= '9');
+}
+
+static Token makeErrorToken(char *msg) {
     Token t;
     lexicalError(msg);
     t.lexeme[0] = '\0';
@@ -22,41 +28,8 @@ static Token makeErrorToken(const char *msg) {
     return t;
 }
 
-void initLexer(FILE *file){
-    
-    if (file == NULL) {
-        perror("File is NULL");
-        return;
-    }
-
-    char line[1024];
-    while (fgets(line, sizeof(line), file)) {
-        size_t lineSize = strlen(line);
-        globalLineCursor = 0;
-        getToken(line, lineSize);
-
-        // TODO: process the line here
-    }
-}
-
-bool isDigit(char c){
-    return(c >= '0' && c <= '9');
-}
-
-void getToken(char *line, int lineSize){
-    struct Token token;
-    if(isDigit(line[globalLineCursor])||line[globalLineCursor] == '-'){
-        token = getTOKEN_NUM(line, lineSize);
-    }else{
-        //error
-        lexicalError("Unexpected character\n");
-        return;
-    }
-    //ADD token to table
-}
-
-Token getTOKEN_NUM(char *line, int lineSize){
-    struct Token numToken;
+Token getTOKEN_NUM(char* line, int lineSize){
+    Token numToken;
     bool hasDot = false;
     char tempString[256];
 
@@ -99,4 +72,60 @@ Token getTOKEN_NUM(char *line, int lineSize){
     numToken.variableValue = strtof(tempString, NULL);
     numToken.tablePosition = -1;//Por enquanto
     return numToken;
+}
+
+static void skipSpaces(char *line, int lineSize){
+    while (globalLineCursor < lineSize){
+        char c = line[globalLineCursor];
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') globalLineCursor++;
+        else break;
+    }
+}
+
+Token getToken(char *line, int lineSize){
+    skipSpaces(line, lineSize);
+
+    if (globalLineCursor >= lineSize){
+        Token t = makeErrorToken("");   // signal end-of-line with empty error token
+        t.lexeme[0] = '\0';
+        return t;
+    }
+
+    char c = line[globalLineCursor];
+
+    if(isDigit(c) || c == '-'){
+        return getTOKEN_NUM(line, lineSize);
+    }
+
+    return makeErrorToken("Unexpected character\n");
+}
+
+void initLexer(FILE *file){
+    
+    if (file == NULL) {
+        perror("File is NULL");
+        return;
+    }
+
+    char line[1024];
+    while (fgets(line, sizeof(line), file)) {
+        int lineSize = strlen(line);
+        globalLineCursor = 0;
+
+        while (globalLineCursor < lineSize){
+            Token t = getToken(line, lineSize);
+            getToken(line, lineSize);
+
+            if (t.tokenType == TOKEN_ERROR && t.lexeme[0] == '\0')
+                break;
+
+            if (t.tokenType == TOKEN_ERROR){
+                // error already printed by makeErrorToken
+                break;
+            }
+            printf("TOKEN_NUM lexeme='%s' value=%f\n", t.lexeme, t.variableValue);
+        }
+
+        // TODO: process the line here
+    }
 }
