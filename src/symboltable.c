@@ -49,6 +49,7 @@ int lexemeValue(char *lexeme){
 }
 
 int divisionKey(int key, int tableSize){
+    printf("%d: ", (key & 0x7FFFFFFF) % tableSize);
     return (key & 0x7FFFFFFF) % tableSize;
 }
 

@@ -22,7 +22,7 @@ int main() {
     if (!file) return 1;
 
     // if you want a symbol table:
-    SymbolTableHash *st = initHash(101);
+    SymbolTableHash *st = initHash(499);
     if(!st){
         printf("Could not create symbol table.\n");
         fclose(file);
@@ -30,7 +30,7 @@ int main() {
     }
 
     // Quick test: lex & print tokens (current initLexer prints)
-    initLexer(file);
+    initLexer(file, st);
 
     // Later: you can modify initLexer to call insertHash(st, token) for NUM tokens.
 

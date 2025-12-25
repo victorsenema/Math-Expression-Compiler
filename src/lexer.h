@@ -3,8 +3,9 @@
 
 #include <stdio.h>
 #include "token.h"
+#include "symboltable.h"
 
-void initLexer(FILE *file);
+void initLexer(FILE *file, SymbolTableHash *st);
 Token getNextTokenFromLine(const char *line, int lineSize);
 
 #endif

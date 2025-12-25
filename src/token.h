@@ -14,7 +14,7 @@ typedef enum {
 typedef enum{
     NUM,
     ID,
-    OPERATOR_ADD,
+    OPERATOR_SUM,
     OPERATOR_SUB,
     OPERATOR_MUL,
     OPERATOR_DIV,
@@ -29,7 +29,6 @@ typedef enum{
 typedef struct Token{
     char lexeme[32];
     TokenType tokenType;
-    int tablePosition; //only for num and id
     TokenValue tokenValue;
     float variableValue;
 } Token;
