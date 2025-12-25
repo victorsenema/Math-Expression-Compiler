@@ -5,22 +5,6 @@
 #include "token.h"
 #include "symboltable.h"
 
-//NEED TO ADD THE INSERTION OF THE TOKEN IN THE SYMBOLTABLE
-//DEFINE RESERVED WORDS
-/*
-typedef enum {
-    TOKEN_NUM, -> DONE
-    TOKEN_ID, -> LAST
-    TOKEN_OPERATOR, -> DONE
-    TOKEN_ASSIGN, -> DONE
-    TOKEN_PAREN, -> DONE
-    TOKEN_COMMA, -> DONE
-    TOKEN_ERROR -> DONE
-} TokenType;
-
-*/
-//
-
 //FOR DEBUG PROPOSE
 //MAYBE add a feature so the user can see the process of the compiler
 const char *tokenTypeToString(TokenType type) {
@@ -39,6 +23,8 @@ const char *tokenTypeToString(TokenType type) {
 const char *tokenValueToString(TokenValue value) {
     switch (value) {
         case NUM:             return "NUM";
+        case NUM_PI:          return "NUM_PI";
+        case NUM_EULER:       return "NUM_EULER";
         case ID:              return "ID";
         case OPERATOR_SUM:    return "OPERATOR_SUM";
         case OPERATOR_SUB:    return "OPERATOR_SUB";
@@ -154,13 +140,70 @@ Token getTOKEN_OPERATOR(char* line){
     return tokenOperator;
 }
 
+Token getTOKEN_NUM_PI(char* line, int linesize, Token tokenPi) {
+    if (globalLineCursor + 1 >= linesize) return tokenPi;
+
+    if (line[globalLineCursor] == 'p' && line[globalLineCursor + 1] == 'i') {
+        char next = (globalLineCursor + 2 < linesize) ? line[globalLineCursor + 2] : '\0';
+        if (!isLetter(next) && !isDigit(next)) {
+
+            tokenPi.lexeme[0] = 'p';
+            tokenPi.lexeme[1] = 'i';
+            tokenPi.lexeme[2] = '\0';
+
+            tokenPi.tokenType = TOKEN_NUM;
+            tokenPi.tokenValue = NUM_PI;
+            tokenPi.variableValue = 3.1415926535;
+
+            globalLineCursor += 2;
+            return tokenPi;
+        }
+    }
+
+    return tokenPi;
+}
+
+Token getTOKEN_NUM_E(char* line, int linesize, Token tokenEuler) {
+    if (globalLineCursor + 1 >= linesize) return tokenEuler;
+
+    if (line[globalLineCursor] == 'e') {
+        if (!isLetter(line[globalLineCursor+1]) && !isDigit(line[globalLineCursor+1])) {
+
+            tokenEuler.lexeme[0] = 'e';
+            tokenEuler.lexeme[1] = '\0';
+
+            tokenEuler.tokenType = TOKEN_NUM;
+            tokenEuler.tokenValue = NUM_EULER;
+            tokenEuler.variableValue = 2.71828;
+
+            globalLineCursor ++;
+            return tokenEuler;
+        }
+    }
+
+    return tokenEuler;
+}
+
 Token getTOKEN_ID(char *line, int lineSize){
     Token tokenID;
     char tempString[256];
     int i = 0;
-    //add here, pi and e
+
+    //RESERVED pi, e
     if (isLetter(line[globalLineCursor])){
         tempString[i] = line[globalLineCursor];
+        if(line[globalLineCursor] == 'e'){
+            tokenID = getTOKEN_NUM_E(line, lineSize, tokenID);
+            if(tokenID.tokenValue == NUM_EULER){
+                return tokenID;
+            }
+        }
+        else if(line[globalLineCursor] == 'p'){
+            tokenID = getTOKEN_NUM_PI(line, lineSize, tokenID);
+            if(tokenID.tokenValue == NUM_PI){
+                return tokenID;
+            }
+        }
         globalLineCursor++, i++;
     }
 

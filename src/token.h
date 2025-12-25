@@ -13,6 +13,8 @@ typedef enum {
 
 typedef enum{
     NUM,
+    NUM_PI,
+    NUM_EULER,
     ID,
     OPERATOR_SUM,
     OPERATOR_SUB,
