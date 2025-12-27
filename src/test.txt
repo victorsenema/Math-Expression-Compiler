@@ -5,9 +5,12 @@
 ( )
 =
 ,
-Jorge,fudidilson
-pi p pididdy
+variable1, variable2,variable 3
+pi p pid
 pi
 e
 e Euler;
 ;
+log
+logaritmo, logg;
+priu ;print, printa

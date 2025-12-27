@@ -11,6 +11,7 @@ const char *tokenTypeToString(TokenType type) {
     switch (type) {
         case TOKEN_NUM:            return "TOKEN_NUM";
         case TOKEN_ID:             return "TOKEN_ID";
+        case TOKEN_FUNCTION:       return "TOKEN_FUNCTION";
         case TOKEN_OPERATOR:       return "TOKEN_OPERATOR";
         case TOKEN_ASSIGN:         return "TOKEN_ASSIGN";
         case TOKEN_PAREN:          return "TOKEN_PAREN";
@@ -26,6 +27,8 @@ const char *tokenValueToString(TokenValue value) {
         case NUM:             return "NUM";
         case NUM_PI:          return "NUM_PI";
         case NUM_EULER:       return "NUM_EULER";
+        case FUNCTION_LOG:    return "FUNCTION_LOG";
+        case FUNCTION_PRINT:  return "FUNCTION_PRINT";
         case ID:              return "ID";
         case OPERATOR_SUM:    return "OPERATOR_SUM";
         case OPERATOR_SUB:    return "OPERATOR_SUB";
@@ -204,6 +207,51 @@ Token getTOKEN_NUM_E(char* line, int linesize, Token tokenEuler) {
     return tokenEuler;
 }
 
+Token getTOKEN_FUNCTION_LOG(char *line, int lineSize, Token tokenLog){
+    if(globalLineCursor + 1 >= lineSize) return tokenLog;
+
+    if(line[globalLineCursor] == 'l' && line[globalLineCursor+1] == 'o' && line[globalLineCursor+2] == 'g'){
+        if(!isLetter(line[globalLineCursor+3]) && !isDigit(line[globalLineCursor+3])){
+            tokenLog.lexeme[0] = 'l';
+            tokenLog.lexeme[1] = 'o';
+            tokenLog.lexeme[2] = 'g';
+            tokenLog.lexeme[3] = '\0';
+
+            tokenLog.tokenType = TOKEN_FUNCTION;
+            tokenLog.tokenValue = FUNCTION_LOG;
+            tokenLog.variableValue = -1;
+            globalLineCursor += 3;
+            return tokenLog;
+        }
+    }
+    return tokenLog;
+}
+
+Token getTOKEN_FUNCTION_PRINT(char *line, int lineSize, Token tokenPrint){
+    if(globalLineCursor + 1 >= lineSize) return tokenPrint;
+
+    if(line[globalLineCursor] == 'p' 
+        && line[globalLineCursor+1] == 'r' 
+        && line[globalLineCursor+2] == 'i'
+        && line[globalLineCursor+3] == 'n'
+        && line[globalLineCursor+4] == 't'){
+        if(!isLetter(line[globalLineCursor+5]) && !isDigit(line[globalLineCursor+5])){
+            tokenPrint.lexeme[0] = 'p';
+            tokenPrint.lexeme[1] = 'r';
+            tokenPrint.lexeme[2] = 'i';
+            tokenPrint.lexeme[3] = 'n';
+            tokenPrint.lexeme[4] = 't';
+            tokenPrint.lexeme[5] = '\0';
+            tokenPrint.tokenType = TOKEN_FUNCTION;
+            tokenPrint.tokenValue = FUNCTION_PRINT;
+            tokenPrint.variableValue = -1;
+            globalLineCursor += 5;
+            return tokenPrint;
+        }
+    }
+    return tokenPrint;
+}
+
 Token getTOKEN_ID(char *line, int lineSize){
     Token tokenID;
 
@@ -215,7 +263,9 @@ Token getTOKEN_ID(char *line, int lineSize){
     char tempString[256];
     int i = 0;
 
-    //RESERVED pi, e
+    //RESERVED
+    //nums -> pi, e
+    //functions -> log, PRINT
     if (isLetter(line[globalLineCursor])){
         tempString[i] = line[globalLineCursor];
         if(line[globalLineCursor] == 'e'){
@@ -224,9 +274,22 @@ Token getTOKEN_ID(char *line, int lineSize){
                 return tokenID;
             }
         }
+        //NUM PI
         else if(line[globalLineCursor] == 'p'){
             tokenID = getTOKEN_NUM_PI(line, lineSize, tokenID);
             if(tokenID.tokenValue == NUM_PI){
+                return tokenID;
+            }else{
+                //FUNCTION PRINT
+                tokenID = getTOKEN_FUNCTION_PRINT(line, lineSize, tokenID);
+                if(tokenID.tokenValue == FUNCTION_PRINT){
+                    return tokenID;
+                }
+            }
+        }
+        else if (line[globalLineCursor] == 'l'){
+            tokenID = getTOKEN_FUNCTION_LOG(line, lineSize, tokenID);
+            if(tokenID.tokenValue == FUNCTION_LOG){
                 return tokenID;
             }
         }
