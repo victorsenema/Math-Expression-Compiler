@@ -10,7 +10,8 @@ typedef enum {
     TOKEN_PAREN,
     TOKEN_COMMA,
     TOKEN_ERROR,
-    TOKEN_END_EXPRESSION
+    TOKEN_END_EXPRESSION,
+    TOKEN_EOF
 } TokenType;
 
 typedef enum{
@@ -31,6 +32,7 @@ typedef enum{
     ASSIGN,
     COMMA,
     END,
+    ENDOFFILE,
     NONE
 } TokenValue;
 

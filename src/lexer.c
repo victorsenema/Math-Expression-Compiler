@@ -2,11 +2,10 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include "lexer.h"
 #include "token.h"
 #include "symboltable.h"
 
-//FOR DEBUG PROPOSE
-//MAYBE add a feature so the user can see the process of the compiler
 const char *tokenTypeToString(TokenType type) {
     switch (type) {
         case TOKEN_NUM:            return "TOKEN_NUM";
@@ -18,6 +17,7 @@ const char *tokenTypeToString(TokenType type) {
         case TOKEN_COMMA:          return "TOKEN_COMMA";
         case TOKEN_ERROR:          return "TOKEN_ERROR";
         case TOKEN_END_EXPRESSION: return "TOKEN_END_EXPRESSION";
+        case TOKEN_EOF:            return "TOKEN_EOF";
         default:                   return "UNKNOWN_TOKEN";
     }
 }
@@ -46,22 +46,20 @@ const char *tokenValueToString(TokenValue value) {
     }
 }
 
-int globalLineCursor = 0;
-
-void lexicalError(char *errorMessage){
-    printf("%s", errorMessage);
-    return;
+static void lexicalError(const char *errorMessage){
+    if (errorMessage && errorMessage[0] != '\0')
+        printf("%s", errorMessage);
 }
 
-bool isDigit(char c){
-    return(c >= '0' && c <= '9');
+static bool isDigit(char c){
+    return (c >= '0' && c <= '9');
 }
 
-bool isLetter(char c){
-    return((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+static bool isLetter(char c){
+    return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
 }
 
-static Token makeErrorToken(char *msg) {
+static Token makeErrorToken(const char *msg) {
     Token t;
     lexicalError(msg);
     t.lexeme[0] = '\0';
@@ -71,147 +69,173 @@ static Token makeErrorToken(char *msg) {
     return t;
 }
 
-Token getTOKEN_PAREN(char* line){
-    Token tokenParen;
+static Token makeEofToken(void){
+    Token t;
+    t.lexeme[0] = '\0';
+    t.tokenType = TOKEN_EOF;
+    t.tokenValue = ENDOFFILE;
+    t.variableValue = -1.0f;
+    return t;
+}
 
-    if (line[globalLineCursor] == '('){        
-        tokenParen.tokenValue = PAREN_OPEN;
-        tokenParen.lexeme[0] = '(';
+void initLexer(Lexer *lx, FILE *file, SymbolTableHash *st) {
+    lx->file = file;
+    lx->st = st;
+    lx->line[0] = '\0';
+    lx->lineSize = 0;
+    lx->cursor = 0;
+    lx->lineNumber = 0;
+    lx->eof = false;
+    lx->hasLine = false;
+}
+
+static bool readNextLine(Lexer *lx) {
+    if (lx == NULL || lx->file == NULL) return false;
+
+    if (fgets(lx->line, (int)sizeof(lx->line), lx->file) == NULL) {
+        lx->eof = true;
+        lx->hasLine = false;
+        lx->line[0] = '\0';
+        lx->lineSize = 0;
+        return false;
     }
-    else{
-        tokenParen.tokenValue = PAREN_CLOSE;
-        tokenParen.lexeme[0] = ')';
+
+    lx->lineSize = (int)strlen(lx->line);
+    lx->cursor = 0;
+    lx->lineNumber++;
+    lx->hasLine = true;
+    return true;
+}
+
+static void skipSpaces(Lexer *lx){
+    while (lx->cursor < lx->lineSize){
+        char c = lx->line[lx->cursor];
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') lx->cursor++;
+        else break;
     }
-    globalLineCursor++;
-
-    tokenParen.lexeme[1] = '\0';
-    tokenParen.tokenType = TOKEN_PAREN;
-    tokenParen.variableValue = -1;
-
-    return tokenParen;
 }
 
-Token getTOKEN_END_EXPRESSION(){
-    Token tokenEND;
+static Token getTOKEN_PAREN(Lexer *lx){
+    Token t;
 
-    tokenEND.lexeme[0] = ';';
-    tokenEND.lexeme[1] = '\0';
-    tokenEND.tokenType = TOKEN_END_EXPRESSION;
-    tokenEND.tokenValue = END;
-    tokenEND.variableValue = -1;
-
-    globalLineCursor++;
-
-    return tokenEND;
-}
-
-Token getTOKEN_ASSING(){
-    Token tokenAssing;
-
-    tokenAssing.lexeme[0] = '=';
-    tokenAssing.lexeme[1] = '\0';
-    tokenAssing.tokenType = TOKEN_ASSIGN;
-    tokenAssing.tokenValue = ASSIGN;
-    tokenAssing.variableValue = -1;
-
-    globalLineCursor++;
-    return tokenAssing;
-}
-
-Token getTOKEN_COMMA(){
-    Token tokenComma;
-
-    tokenComma.lexeme[0] = ',';
-    tokenComma.lexeme[1] = '\0';
-    tokenComma.tokenType = TOKEN_COMMA;
-    tokenComma.tokenValue = COMMA;
-    tokenComma.variableValue = -1;
-
-    globalLineCursor++;
-    return tokenComma;
-}
-
-Token getTOKEN_OPERATOR(char* line){
-    Token tokenOperator;
-    tokenOperator.lexeme[0] = line[globalLineCursor];
-    tokenOperator.lexeme[1] = '\0';
-
-    switch(line[globalLineCursor]){
-        case '+':
-            tokenOperator.tokenValue = OPERATOR_SUM;
-            break;
-        case '-':
-            tokenOperator.tokenValue = OPERATOR_SUB;
-            break;
-        case '*':
-            tokenOperator.tokenValue = OPERATOR_MUL;
-            break;
-        case '/':
-            tokenOperator.tokenValue = OPERATOR_DIV;
-            break;
-        case '^':
-            tokenOperator.tokenValue = OPERATOR_POT;
-            break;
-        case 37:
-            tokenOperator.tokenValue = OPERATOR_MOD;
-            break;
+    if (lx->line[lx->cursor] == '('){
+        t.tokenValue = PAREN_OPEN;
+        t.lexeme[0] = '(';
+    } else {
+        t.tokenValue = PAREN_CLOSE;
+        t.lexeme[0] = ')';
     }
-    globalLineCursor++;
-    tokenOperator.tokenType = TOKEN_OPERATOR;
-    tokenOperator.variableValue = -1;
 
-    return tokenOperator;
+    lx->cursor++;
+    t.lexeme[1] = '\0';
+    t.tokenType = TOKEN_PAREN;
+    t.variableValue = -1.0f;
+    return t;
 }
 
-Token getTOKEN_NUM_PI(char* line, int linesize, Token tokenPi) {
-    if (globalLineCursor + 1 >= linesize) return tokenPi;
+static Token getTOKEN_END_EXPRESSION(Lexer *lx){
+    Token t;
+    t.lexeme[0] = ';';
+    t.lexeme[1] = '\0';
+    t.tokenType = TOKEN_END_EXPRESSION;
+    t.tokenValue = END;
+    t.variableValue = -1.0f;
+    lx->cursor++;
+    return t;
+}
 
-    if (line[globalLineCursor] == 'p' && line[globalLineCursor + 1] == 'i') {
-        char next = (globalLineCursor + 2 < linesize) ? line[globalLineCursor + 2] : '\0';
+static Token getTOKEN_ASSIGN(Lexer *lx){
+    Token t;
+    t.lexeme[0] = '=';
+    t.lexeme[1] = '\0';
+    t.tokenType = TOKEN_ASSIGN;
+    t.tokenValue = ASSIGN;
+    t.variableValue = -1.0f;
+    lx->cursor++;
+    return t;
+}
+
+static Token getTOKEN_COMMA(Lexer *lx){
+    Token t;
+    t.lexeme[0] = ',';
+    t.lexeme[1] = '\0';
+    t.tokenType = TOKEN_COMMA;
+    t.tokenValue = COMMA;
+    t.variableValue = -1.0f;
+    lx->cursor++;
+    return t;
+}
+
+static Token getTOKEN_OPERATOR(Lexer *lx){
+    Token t;
+    char c = lx->line[lx->cursor];
+
+    t.lexeme[0] = c;
+    t.lexeme[1] = '\0';
+    t.tokenType = TOKEN_OPERATOR;
+    t.variableValue = -1.0f;
+
+    switch(c){
+        case '+': t.tokenValue = OPERATOR_SUM; break;
+        case '-': t.tokenValue = OPERATOR_SUB; break;
+        case '*': t.tokenValue = OPERATOR_MUL; break;
+        case '/': t.tokenValue = OPERATOR_DIV; break;
+        case '^': t.tokenValue = OPERATOR_POT; break;
+        case '%': t.tokenValue = OPERATOR_MOD; break;
+        default:  t.tokenValue = NONE; break;
+    }
+
+    lx->cursor++;
+    return t;
+}
+
+static Token getTOKEN_NUM_PI(Lexer *lx, Token tokenPi) {
+    if (lx->cursor + 1 >= lx->lineSize) return tokenPi;
+
+    if (lx->line[lx->cursor] == 'p' && lx->line[lx->cursor + 1] == 'i') {
+        char next = (lx->cursor + 2 < lx->lineSize) ? lx->line[lx->cursor + 2] : '\0';
         if (!isLetter(next) && !isDigit(next)) {
-
             tokenPi.lexeme[0] = 'p';
             tokenPi.lexeme[1] = 'i';
             tokenPi.lexeme[2] = '\0';
 
             tokenPi.tokenType = TOKEN_NUM;
             tokenPi.tokenValue = NUM_PI;
-            tokenPi.variableValue = 3.1415926535;
+            tokenPi.variableValue = 3.1415926535f;
 
-            globalLineCursor += 2;
+            lx->cursor += 2;
             return tokenPi;
         }
     }
-
     return tokenPi;
 }
 
-Token getTOKEN_NUM_E(char* line, int linesize, Token tokenEuler) {
-    if (globalLineCursor + 1 >= linesize) return tokenEuler;
+static Token getTOKEN_NUM_E(Lexer *lx, Token tokenEuler) {
+    if (lx->cursor >= lx->lineSize) return tokenEuler;
 
-    if (line[globalLineCursor] == 'e') {
-        if (!isLetter(line[globalLineCursor+1]) && !isDigit(line[globalLineCursor+1])) {
-
+    if (lx->line[lx->cursor] == 'e') {
+        char next = (lx->cursor + 1 < lx->lineSize) ? lx->line[lx->cursor + 1] : '\0';
+        if (!isLetter(next) && !isDigit(next)) {
             tokenEuler.lexeme[0] = 'e';
             tokenEuler.lexeme[1] = '\0';
 
             tokenEuler.tokenType = TOKEN_NUM;
             tokenEuler.tokenValue = NUM_EULER;
-            tokenEuler.variableValue = 2.71828;
+            tokenEuler.variableValue = 2.71828f;
 
-            globalLineCursor ++;
+            lx->cursor++;
             return tokenEuler;
         }
     }
-
     return tokenEuler;
 }
 
-Token getTOKEN_FUNCTION_LOG(char *line, int lineSize, Token tokenLog){
-    if(globalLineCursor + 1 >= lineSize) return tokenLog;
+static Token getTOKEN_FUNCTION_LOG(Lexer *lx, Token tokenLog){
+    if (lx->cursor + 2 >= lx->lineSize) return tokenLog;
 
-    if(line[globalLineCursor] == 'l' && line[globalLineCursor+1] == 'o' && line[globalLineCursor+2] == 'g'){
-        if(!isLetter(line[globalLineCursor+3]) && !isDigit(line[globalLineCursor+3])){
+    if (lx->line[lx->cursor] == 'l' && lx->line[lx->cursor+1] == 'o' && lx->line[lx->cursor+2] == 'g'){
+        char next = (lx->cursor + 3 < lx->lineSize) ? lx->line[lx->cursor+3] : '\0';
+        if(!isLetter(next) && !isDigit(next)){
             tokenLog.lexeme[0] = 'l';
             tokenLog.lexeme[1] = 'o';
             tokenLog.lexeme[2] = 'g';
@@ -219,227 +243,186 @@ Token getTOKEN_FUNCTION_LOG(char *line, int lineSize, Token tokenLog){
 
             tokenLog.tokenType = TOKEN_FUNCTION;
             tokenLog.tokenValue = FUNCTION_LOG;
-            tokenLog.variableValue = -1;
-            globalLineCursor += 3;
+            tokenLog.variableValue = -1.0f;
+
+            lx->cursor += 3;
             return tokenLog;
         }
     }
     return tokenLog;
 }
 
-Token getTOKEN_FUNCTION_PRINT(char *line, int lineSize, Token tokenPrint){
-    if(globalLineCursor + 1 >= lineSize) return tokenPrint;
+static Token getTOKEN_FUNCTION_PRINT(Lexer *lx, Token tokenPrint){
+    if (lx->cursor + 4 >= lx->lineSize) return tokenPrint;
 
-    if(line[globalLineCursor] == 'p' 
-        && line[globalLineCursor+1] == 'r' 
-        && line[globalLineCursor+2] == 'i'
-        && line[globalLineCursor+3] == 'n'
-        && line[globalLineCursor+4] == 't'){
-        if(!isLetter(line[globalLineCursor+5]) && !isDigit(line[globalLineCursor+5])){
+    if (lx->line[lx->cursor] == 'p'
+        && lx->line[lx->cursor+1] == 'r'
+        && lx->line[lx->cursor+2] == 'i'
+        && lx->line[lx->cursor+3] == 'n'
+        && lx->line[lx->cursor+4] == 't') {
+
+        char next = (lx->cursor + 5 < lx->lineSize) ? lx->line[lx->cursor+5] : '\0';
+        if(!isLetter(next) && !isDigit(next)){
             tokenPrint.lexeme[0] = 'p';
             tokenPrint.lexeme[1] = 'r';
             tokenPrint.lexeme[2] = 'i';
             tokenPrint.lexeme[3] = 'n';
             tokenPrint.lexeme[4] = 't';
             tokenPrint.lexeme[5] = '\0';
+
             tokenPrint.tokenType = TOKEN_FUNCTION;
             tokenPrint.tokenValue = FUNCTION_PRINT;
-            tokenPrint.variableValue = -1;
-            globalLineCursor += 5;
+            tokenPrint.variableValue = -1.0f;
+
+            lx->cursor += 5;
             return tokenPrint;
         }
     }
     return tokenPrint;
 }
 
-Token getTOKEN_ID(char *line, int lineSize){
-    Token tokenID;
+static Token getTOKEN_ID_or_reserved(Lexer *lx){
+    Token t;
+    t.tokenType = TOKEN_ERROR;
+    t.tokenValue = NONE;
+    t.variableValue = -1.0f;
+    t.lexeme[0] = '\0';
 
-    tokenID.tokenType = TOKEN_ERROR;
-    tokenID.tokenValue = NONE;
-    tokenID.variableValue = -1;
-    tokenID.lexeme[0] = '\0';
+    if (isLetter(lx->line[lx->cursor])) {
+        if (lx->line[lx->cursor] == 'e') {
+            t = getTOKEN_NUM_E(lx, t);
+            if (t.tokenValue == NUM_EULER) return t;
+        } else if (lx->line[lx->cursor] == 'p') {
+            t = getTOKEN_NUM_PI(lx, t);
+            if (t.tokenValue == NUM_PI) return t;
 
-    char tempString[256];
+            t = getTOKEN_FUNCTION_PRINT(lx, t);
+            if (t.tokenValue == FUNCTION_PRINT) return t;
+        } else if (lx->line[lx->cursor] == 'l') {
+            t = getTOKEN_FUNCTION_LOG(lx, t);
+            if (t.tokenValue == FUNCTION_LOG) return t;
+        }
+    }
+
+    char temp[256];
     int i = 0;
 
-    //RESERVED
-    //nums -> pi, e
-    //functions -> log, PRINT
-    if (isLetter(line[globalLineCursor])){
-        tempString[i] = line[globalLineCursor];
-        if(line[globalLineCursor] == 'e'){
-            tokenID = getTOKEN_NUM_E(line, lineSize, tokenID);
-            if(tokenID.tokenValue == NUM_EULER){
-                return tokenID;
-            }
-        }
-        //NUM PI
-        else if(line[globalLineCursor] == 'p'){
-            tokenID = getTOKEN_NUM_PI(line, lineSize, tokenID);
-            if(tokenID.tokenValue == NUM_PI){
-                return tokenID;
-            }else{
-                //FUNCTION PRINT
-                tokenID = getTOKEN_FUNCTION_PRINT(line, lineSize, tokenID);
-                if(tokenID.tokenValue == FUNCTION_PRINT){
-                    return tokenID;
-                }
-            }
-        }
-        else if (line[globalLineCursor] == 'l'){
-            tokenID = getTOKEN_FUNCTION_LOG(line, lineSize, tokenID);
-            if(tokenID.tokenValue == FUNCTION_LOG){
-                return tokenID;
-            }
-        }
-        globalLineCursor++, i++;
+    while (lx->cursor < lx->lineSize && (isLetter(lx->line[lx->cursor]) || isDigit(lx->line[lx->cursor]))) {
+        if (i < (int)sizeof(temp) - 1)
+            temp[i++] = lx->line[lx->cursor];
+        lx->cursor++;
     }
+    temp[i] = '\0';
 
-    while(isDigit(line[globalLineCursor]) || isLetter(line[globalLineCursor])){
-        tempString[i] = line[globalLineCursor];
-        globalLineCursor++, i++;
-    }
-    tempString[i] = '\0';
-    strncpy(tokenID.lexeme, tempString, sizeof(tokenID.lexeme) - 1);
-    tokenID.lexeme[sizeof(tokenID.lexeme) - 1] = '\0';
-    tokenID.tokenType = TOKEN_ID;
-    tokenID.tokenValue = ID;
-    tokenID.variableValue = -1;
-    return tokenID;
+    strncpy(t.lexeme, temp, sizeof(t.lexeme) - 1);
+    t.lexeme[sizeof(t.lexeme) - 1] = '\0';
+    t.tokenType = TOKEN_ID;
+    t.tokenValue = ID;
+    t.variableValue = -1.0f;
+    return t;
 }
 
-Token getTOKEN_NUM(char* line, int lineSize){
-    Token numToken;
+static Token getTOKEN_NUM(Lexer *lx){
+    Token t;
     bool hasDot = false;
-    char tempString[256];
-
+    char temp[256];
     int i = 0;
 
-    if(line[globalLineCursor] == '-'){
-        tempString[i] = '-';
-        globalLineCursor++, i++;
-        if (globalLineCursor >= lineSize || !isDigit(line[globalLineCursor])) {
+    if (lx->line[lx->cursor] == '-') {
+        temp[i++] = '-';
+        lx->cursor++;
+        if (lx->cursor >= lx->lineSize || !isDigit(lx->line[lx->cursor])) {
             return makeErrorToken("A negative NUM needs a digit after the '-'\n");
         }
     }
 
-    if(isDigit(line[globalLineCursor])){
-        tempString[i] = line[globalLineCursor];
-        i++, globalLineCursor++;
-    }else{
+    if (!isDigit(lx->line[lx->cursor])) {
         return makeErrorToken("NUM needs a digit\n");
     }
 
-    while(globalLineCursor < lineSize  && i < (int)sizeof(tempString) - 1){
-        char c = line[globalLineCursor];
-        if(isDigit(c)){
-            tempString[i] = c;
-        }else if (c == '.' && !hasDot){
+    while (lx->cursor < lx->lineSize && i < (int)sizeof(temp) - 1) {
+        char c = lx->line[lx->cursor];
+        if (isDigit(c)) {
+            temp[i++] = c;
+            lx->cursor++;
+        } else if (c == '.' && !hasDot) {
             hasDot = true;
-            tempString[i] = '.';
-        }else{
+            temp[i++] = '.';
+            lx->cursor++;
+        } else {
             break;
         }
-        globalLineCursor++;
-        i++;
     }
-    tempString[i] = '\0';
 
-    strncpy(numToken.lexeme, tempString, sizeof(numToken.lexeme) - 1);
-    numToken.lexeme[sizeof(numToken.lexeme) - 1] = '\0';
-    numToken.tokenType = TOKEN_NUM;
-    numToken.tokenValue = NUM;
-    numToken.variableValue = strtof(tempString, NULL);
-    return numToken;
+    temp[i] = '\0';
+    strncpy(t.lexeme, temp, sizeof(t.lexeme) - 1);
+    t.lexeme[sizeof(t.lexeme) - 1] = '\0';
+    t.tokenType = TOKEN_NUM;
+    t.tokenValue = NUM;
+    t.variableValue = strtof(temp, NULL);
+    return t;
 }
 
-static void skipSpaces(char *line, int lineSize){
-    while (globalLineCursor < lineSize){
-        char c = line[globalLineCursor];
-        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') globalLineCursor++;
-        else break;
-    }
-}
+static Token scanToken(Lexer *lx){
+    skipSpaces(lx);
 
-Token getToken(char *line, int lineSize){
-    skipSpaces(line, lineSize);
-
-    
-    if (globalLineCursor >= lineSize){
+    if (lx->cursor >= lx->lineSize) {
         Token t = makeErrorToken("");
         t.lexeme[0] = '\0';
         return t;
     }
-    
-    char c = line[globalLineCursor];
-    
-    if(c == ';'){
-        return getTOKEN_END_EXPRESSION();
-    }
-    //TOKEN_NUM only positives
-    if (isDigit(c))
-        return getTOKEN_NUM(line, lineSize);
-    else if(isLetter(c))
-        return getTOKEN_ID(line, lineSize);
-    //TOKEN_ASSING
-    else if(c == '=')
-        return getTOKEN_ASSING();
-    //TOKENS NUM or OPERATOR that start with -
-    else if (c == '-') {
-        // lookahead
-        if (globalLineCursor + 1 < lineSize && isDigit(line[globalLineCursor + 1])) {
-            return getTOKEN_NUM(line, lineSize);//TOKEN_NUM
-        } else {
-            return getTOKEN_OPERATOR(line);//TOKEN_OPERATOR
-        }
-    }
-    //TOKEN PAREN
-    else if(line[globalLineCursor] == '(' || line[globalLineCursor] == ')')
-        return getTOKEN_PAREN(line);
-    else if (c == ',')
-        return getTOKEN_COMMA();
 
-    //operator characters
-    char operatorCharacteres[7] = { '+', '-', '*', '/', '^', 37, '\0' };
-    //TOKEN_OPERATOR
-    for(int i = 0; operatorCharacteres[i] != '\0'; i++){
-        if(c == operatorCharacteres[i])
-            return getTOKEN_OPERATOR(line);
+    char c = lx->line[lx->cursor];
+
+    if (c == ';') return getTOKEN_END_EXPRESSION(lx);
+    if (c == '=') return getTOKEN_ASSIGN(lx);
+    if (c == ',') return getTOKEN_COMMA(lx);
+    if (c == '(' || c == ')') return getTOKEN_PAREN(lx);
+
+    if (isDigit(c)) return getTOKEN_NUM(lx);
+
+    if (isLetter(c)) return getTOKEN_ID_or_reserved(lx);
+
+    if (c == '-') {
+        if (lx->cursor + 1 < lx->lineSize && isDigit(lx->line[lx->cursor + 1])) {
+            return getTOKEN_NUM(lx);
+        }
+        return getTOKEN_OPERATOR(lx);
     }
-    
+
+    if (c == '+' || c == '*' || c == '/' || c == '^' || c == '%') {
+        return getTOKEN_OPERATOR(lx);
+    }
+
     return makeErrorToken("Unexpected character\n");
 }
 
-void initLexer(FILE *file, SymbolTableHash *st){
-    
-    if (file == NULL) {
-        perror("File is NULL");
-        return;
-    }
+Token getNextToken(Lexer *lx){
+    while (1) {
+        if (lx == NULL) return makeErrorToken("Lexer is NULL\n");
 
-    char line[1024];
-    while (fgets(line, sizeof(line), file)) {
-        int lineSize = strlen(line);
-        globalLineCursor = 0;
-
-        while (globalLineCursor < lineSize){
-            Token t = getToken(line, lineSize);
-
-            if (t.tokenType == TOKEN_ERROR && t.lexeme[0] == '\0')
-                break;
-
-            if (t.tokenType == TOKEN_ERROR){
-                break;
-            }
-
-            if(t.tokenType == TOKEN_ID)
-                insertHash(st, t);
-            printf("type=%s type='%s' lexeme='%s' value=%f\n",
-                tokenTypeToString(t.tokenType),
-                tokenValueToString(t.tokenValue),
-                t.lexeme,
-                t.variableValue);
+        if (lx->eof) {
+            return makeEofToken();
         }
+
+        if (!lx->hasLine || lx->cursor >= lx->lineSize) {
+            lx->hasLine = false;
+            if (!readNextLine(lx)) {
+                return makeEofToken();
+            }
+        }
+
+        Token t = scanToken(lx);
+
+        if (t.tokenType == TOKEN_ERROR && t.lexeme[0] == '\0') {
+            lx->hasLine = false;
+            continue;
+        }
+
+        if (t.tokenType == TOKEN_ID && lx->st != NULL) {
+            insertHash(lx->st, t);
+        }
+
+        return t;
     }
 }
