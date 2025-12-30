@@ -1,8 +1,8 @@
-num = 2.0;
-print(num);
-num1 = pi * 3;
-print(num1);
-print(3^3);
-print((3+3)^2);
-print(e);
-print(num + num1);
+x = 2;
+y = 3;
+
+z = x + y * 4;
+print(z);
+
+print((z ^ 2) % 5);
+print(log(8, 2));
