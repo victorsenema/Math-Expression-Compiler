@@ -10,7 +10,6 @@ const char *tokenTypeToString(TokenType type) {
     switch (type) {
         case TOKEN_NUM:            return "TOKEN_NUM";
         case TOKEN_ID:             return "TOKEN_ID";
-        case TOKEN_FUNCTION:       return "TOKEN_FUNCTION";
         case TOKEN_OPERATOR:       return "TOKEN_OPERATOR";
         case TOKEN_ASSIGN:         return "TOKEN_ASSIGN";
         case TOKEN_PAREN:          return "TOKEN_PAREN";
@@ -26,9 +25,8 @@ const char *tokenValueToString(TokenValue value) {
     switch (value) {
         case NUM:             return "NUM";
         case ID_IMMUTABLE:    return "ID_IMMUTABLE";
-        case FUNCTION_LOG:    return "FUNCTION_LOG";
-        case FUNCTION_PRINT:  return "FUNCTION_PRINT";
         case ID:              return "ID";
+        case ID_FUNCTION:     return "ID_FUNCTION";
         case OPERATOR_SUM:    return "OPERATOR_SUM";
         case OPERATOR_SUB:    return "OPERATOR_SUB";
         case OPERATOR_MUL:    return "OPERATOR_MUL";
@@ -45,10 +43,22 @@ const char *tokenValueToString(TokenValue value) {
     }
 }
 
+static Token makeFunctionIdToken(Lexer *lx, const char *name, int len) {
+    Token t;
+    strncpy(t.lexeme, name, sizeof(t.lexeme) - 1);
+    t.lexeme[sizeof(t.lexeme) - 1] = '\0';
+    t.tokenType = TOKEN_ID;
+    t.tokenValue = ID_FUNCTION;
+    t.variableValue = -1.0f;
+    lx->cursor += len;
+    return t;
+}
+
 void initTokenNumPi(Lexer* lx){
     Token t;
-    char temp[4] = "pi\0";
+    char temp[] = "pi";
     strncpy(t.lexeme, temp, sizeof(t.lexeme) - 1);
+    t.lexeme[sizeof(t.lexeme) - 1] = '\0';
     t.tokenType = TOKEN_ID;
     t.tokenValue = ID_IMMUTABLE;
     t.variableValue = 3.14159f;
@@ -57,8 +67,9 @@ void initTokenNumPi(Lexer* lx){
 
 void initTokenNumEuler(Lexer* lx){
     Token t;
-    char temp[3] = "e\0";
+    char temp[] = "e";
     strncpy(t.lexeme, temp, sizeof(t.lexeme) - 1);
+    t.lexeme[sizeof(t.lexeme) - 1] = '\0';
     t.tokenType = TOKEN_ID;
     t.tokenValue = ID_IMMUTABLE;
     t.variableValue = 2.71828f;
@@ -81,6 +92,15 @@ static bool isDigit(char c){
 
 static bool isLetter(char c){
     return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+}
+
+static bool matchKeyword(Lexer *lx, const char *kw, int kwLen) {
+    if (lx->cursor + kwLen > lx->lineSize) return false;
+    if (strncmp(&lx->line[lx->cursor], kw, kwLen) != 0) return false;
+
+    char next = (lx->cursor + kwLen < lx->lineSize) ? lx->line[lx->cursor + kwLen] : '\0';
+    if (isLetter(next) || isDigit(next)) return false;
+    return true;
 }
 
 static Token makeErrorToken(const char *msg) {
@@ -214,57 +234,6 @@ static Token getTOKEN_OPERATOR(Lexer *lx){
     return t;
 }
 
-static Token getTOKEN_FUNCTION_LOG(Lexer *lx, Token tokenLog){
-    if (lx->cursor + 2 >= lx->lineSize) return tokenLog;
-
-    if (lx->line[lx->cursor] == 'l' && lx->line[lx->cursor+1] == 'o' && lx->line[lx->cursor+2] == 'g'){
-        char next = (lx->cursor + 3 < lx->lineSize) ? lx->line[lx->cursor+3] : '\0';
-        if(!isLetter(next) && !isDigit(next)){
-            tokenLog.lexeme[0] = 'l';
-            tokenLog.lexeme[1] = 'o';
-            tokenLog.lexeme[2] = 'g';
-            tokenLog.lexeme[3] = '\0';
-
-            tokenLog.tokenType = TOKEN_FUNCTION;
-            tokenLog.tokenValue = FUNCTION_LOG;
-            tokenLog.variableValue = -1.0f;
-
-            lx->cursor += 3;
-            return tokenLog;
-        }
-    }
-    return tokenLog;
-}
-
-static Token getTOKEN_FUNCTION_PRINT(Lexer *lx, Token tokenPrint){
-    if (lx->cursor + 4 >= lx->lineSize) return tokenPrint;
-
-    if (lx->line[lx->cursor] == 'p'
-        && lx->line[lx->cursor+1] == 'r'
-        && lx->line[lx->cursor+2] == 'i'
-        && lx->line[lx->cursor+3] == 'n'
-        && lx->line[lx->cursor+4] == 't') {
-
-        char next = (lx->cursor + 5 < lx->lineSize) ? lx->line[lx->cursor+5] : '\0';
-        if(!isLetter(next) && !isDigit(next)){
-            tokenPrint.lexeme[0] = 'p';
-            tokenPrint.lexeme[1] = 'r';
-            tokenPrint.lexeme[2] = 'i';
-            tokenPrint.lexeme[3] = 'n';
-            tokenPrint.lexeme[4] = 't';
-            tokenPrint.lexeme[5] = '\0';
-
-            tokenPrint.tokenType = TOKEN_FUNCTION;
-            tokenPrint.tokenValue = FUNCTION_PRINT;
-            tokenPrint.variableValue = -1.0f;
-
-            lx->cursor += 5;
-            return tokenPrint;
-        }
-    }
-    return tokenPrint;
-}
-
 static Token getTOKEN_ID(Lexer *lx){
     Token t;
     t.tokenType = TOKEN_ERROR;
@@ -354,17 +323,10 @@ static Token scanToken(Lexer *lx){
     if (isDigit(c)) return getTOKEN_NUM(lx);
 
     if (isLetter(c)) {
-        Token tk;
-        tk.tokenType = TOKEN_ERROR;
-        tk.tokenValue = NONE;
-        tk.variableValue = -1.0f;
-        tk.lexeme[0] = '\0';
-
-        tk = getTOKEN_FUNCTION_PRINT(lx, tk);
-        if (tk.tokenType == TOKEN_FUNCTION) return tk;
-
-        tk = getTOKEN_FUNCTION_LOG(lx, tk);
-        if (tk.tokenType == TOKEN_FUNCTION) return tk;
+        if (matchKeyword(lx, "print", 5)) return makeFunctionIdToken(lx, "print", 5);
+        if (matchKeyword(lx, "log",   3)) return makeFunctionIdToken(lx, "log",   3);
+        if (matchKeyword(lx, "max",   3)) return makeFunctionIdToken(lx, "max",   3);
+        if (matchKeyword(lx, "min",   3)) return makeFunctionIdToken(lx, "min",   3);
 
         return getTOKEN_ID(lx);
     }

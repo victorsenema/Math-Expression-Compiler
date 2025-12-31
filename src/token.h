@@ -4,7 +4,6 @@
 typedef enum {
     TOKEN_NUM,
     TOKEN_ID,
-    TOKEN_FUNCTION,
     TOKEN_OPERATOR,
     TOKEN_ASSIGN,
     TOKEN_PAREN,
@@ -16,10 +15,9 @@ typedef enum {
 
 typedef enum{
     NUM,
-    ID_IMMUTABLE,
     ID,
-    FUNCTION_LOG,
-    FUNCTION_PRINT,
+    ID_IMMUTABLE,
+    ID_FUNCTION,
     OPERATOR_SUM,
     OPERATOR_SUB,
     OPERATOR_MUL,
