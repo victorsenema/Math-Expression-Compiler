@@ -53,7 +53,7 @@ function_name(expression1, expression2);
 ```
 
 Some functions accept one argument, others accept two arguments.
-Passing an incorrect number of arguments results in a runtime error.
+Passing an incorrect number of arguments results in a error.
 
 **print(expression)**
 Prints the evaluated result of an expression to the standard output.
