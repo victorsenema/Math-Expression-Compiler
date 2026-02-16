@@ -1,80 +1,8 @@
-x = 2;
-y = 3;
-z = x + y * 4;
-print(x);
-print(y);
-print(z);
+a = 3;
+b = 4;
+c = 5;
 
-print(x + y * 4);
-print((x + y) * 4);
-print((z ^ 2) % 5);
-print(z ^ 2);
+print(a^2 + b^2);
+print(c^2);
 
-print(3^2^4);
-print((3^2)^4);
-print(3^(2^4));
-
-print(pi);
-print(e);
-
-a = 5;
-b = 2;
-c = 7;
-
-print(a + b - c * 2);
-print((a + b - c) * 2);
-print((a ^ b) + (c % b));
-
-print(log(3, 2));
-print(log(8, 2));
-
-print(max(10, 20));
-print(min(10, 20));
-print(max(x, y));
-print(min(x, y));
-print(max(z, x + y));
-print(min(z, x + y));
-
-print(log(max(8, 2), 2));
-print(max(log(8, 2), 10));
-print(min(log(8, 2), 10));
-
-print(max((z ^ 2) % 5, min(x + y, 10)));
-print(log(max(z, 8), 2));
-print(min(max(3, 4), max(1, 2)));
-
-print(abs(-2));
-print(abs(-10));
-print(abs(0 - 7));
-print(abs((x + y) - 20));
-print(abs(z - (x + y * 10)));
-
-print(sin(0));
-print(cos(0));
-
-print(sin(pi));
-print(cos(pi));
-
-print(sin(pi / 2));
-print(cos(pi / 2));
-
-print(sin(pi / 4));
-print(cos(pi / 4));
-
-print(sin(x));
-print(cos(y));
-print(sin(x + y));
-print(cos(x + y));
-
-print(sin(z ^ 2));
-print(cos((z ^ 2) % 5));
-
-print(max(abs(z - 20), 10));
-print(min(abs(z - 20), 10));
-print(log(max(abs(z - 20), 8), 2));
-
-print(abs(sin(0 - 1)));
-print(abs(cos(0 - 1)));
-
-print(max(abs((z ^ 2) % 5), min(abs(x - y), 10)));
-print(min(abs((z ^ 2) % 5), max(abs(x - y), 10)));
+print(abs((a^2 + b^2) - (c^2)));

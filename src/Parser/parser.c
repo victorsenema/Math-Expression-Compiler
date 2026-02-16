@@ -20,6 +20,13 @@ Example:
 FIRST(<expressionP'>) = { '^', ε }
 FOLLOW(<expressionP'>) = { '*', '/', '%', '+', '-', ';', ')', ',' }
 check the first and call expressionP, them if the production dindt return, check for every follow, if no one is nextToken we have an error.
+16/02/26 : Add funtions:
+        <statment> → <func_declaration> | <declaration_variable> | <print>
+        <func_declaration> → ID '(' params ')' compound_statment
+        <params> → params_list | ε [this may not work use "void"]
+        <param_list> → param_list ',' ID | ID
+        
+        <compound_statment → '{' local_decls statmentlist '}' 
 */
 /*
 LL1:
