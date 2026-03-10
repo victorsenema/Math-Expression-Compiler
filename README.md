@@ -1,6 +1,6 @@
-# Simple Expression Compiler
+# Simple Expression Interpreter
 
-This project implements a simple compiler/interpreter for a small expression-based language.
+This project implements a simple interpreter for a small expression-based language.
 It supports variable assignment, arithmetic expressions, and basic mathematical functions,
 using a recursive descent (LL(1)) parser with direct evaluation (no AST).
 
